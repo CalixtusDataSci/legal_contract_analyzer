@@ -12,6 +12,22 @@
 
 ---
 
+## Recent Changes (May 2026)
+
+- Restored educational notebooks under `notebooks/` (previously removed). Notebook outputs were stripped to keep repository size small and avoid large diffs.
+- Replaced deprecated `PyPDF2` with `pypdf` throughout the codebase and dependency manifests (`requirements.txt`, `pyproject.toml`). The extractor now prefers `pdfplumber` and falls back to `pypdf`.
+- Cleaned repository clutter: removed duplicate virtualenv `.venv-1` and test caches.
+- Test status: all tests pass locally (46 passed).
+
+## Brutal Audit Summary (short)
+
+- **Tests & Stability:** Tests are solid and pass — good engineering signal. Maintain the test coverage as features grow.
+- **Technical Debt:** Rule-based detection is serviceable for education but will miss non-standard drafting. Plan for a transformer-based classifier for production-quality recall/precision.
+- **Performance Risks:** Ensure spaCy model is loaded only once; avoid repeated model loads in long-running processes. PDF parsing is I/O bound—benchmark with large contract sets.
+- **Security/Privacy:** Processing is local — OK. Add guidance for handling PII and client documents in multitenant or CI environments.
+- **Repo Hygiene:** Keep a single `.venv`. Use `nbstripout` pre-commit to avoid notebook noise.
+
+If you want a full exported audit (`docs/AUDIT.md`) with file-specific notes and remediation steps, say "export audit" and I will produce it.
 ## Overview
 
 Legal Contract Analyzer is a production-ready Python application that uses **Natural Language Processing (NLP)** and **legal domain expertise** to automatically analyze legal contracts, extract critical clauses, assess risk levels, and generate comprehensive compliance reports.

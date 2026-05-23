@@ -12,7 +12,7 @@ PDF Input -> Text Extraction -> Clause Classification -> Risk Analysis -> Compli
 
 ### PDF Parsing Strategy
 - **Primary:** `pdfplumber` -- preserves layout for accurate text flow
-- **Fallback:** `PyPDF2` -- reliable extraction for standard PDFs
+- **Fallback:** `pypdf` (modern replacement for deprecated `PyPDF2`) -- reliable extraction for standard PDFs
 - **Post-processing:** Text normalization pipeline to handle:
   - Broken words across line breaks
   - Excessive whitespace normalization

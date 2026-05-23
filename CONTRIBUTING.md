@@ -38,12 +38,16 @@ This project was built by **Nwaeke Calixtus Ifeanyi, Esq.** -- a qualified Niger
 git clone https://github.com/YOUR_USERNAME/legal-contract-analyzer.git
 cd legal-contract-analyzer
 
-# Create virtual environment
+# Create virtual environment (use a single venv per workspace)
 python -m venv .venv
 source .venv/bin/activate
 
 # Install development dependencies
 make install-dev
+
+Notes:
+- Do NOT create multiple virtual environments in the same repo root (e.g., `.venv-1`). Use a single `.venv` and rely on CI or `tox` for cross-Python testing.
+- Use `pip install -r requirements.txt` to replicate the exact runtime dependencies listed in the repository.
 ```
 
 ## Code Standards
