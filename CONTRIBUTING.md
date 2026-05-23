@@ -58,6 +58,20 @@ Notes:
 - Maximum line length: 88 characters
 - Use type hints where appropriate
 
+### Security & Responsible Disclosure
+
+- If you discover a security vulnerability, do NOT open a public issue. Report privately to the maintainer at `calixtusnwaeke@gmail.com` with: a short description, repro steps, and a suggested fix where possible.
+- For sensitive disclosures, encrypt your message with the maintainer's PGP key. If you don't have the key, contact the maintainer to arrange secure disclosure.
+
+### Code of Conduct
+
+- All contributors must follow the project's `CODE_OF_CONDUCT.md`. Unprofessional behavior, harassment, or discriminatory remarks will result in removal of contributions and potential banning from the project.
+
+### Legal & Compliance
+
+- This project is distributed under the MIT License. Contributions are accepted under the same license unless otherwise agreed in writing.
+- Do not commit real client data, personal data, or confidential documents. Use redacted or synthetic examples in tests and issues.
+
 ### Testing
 - Write tests for new features
 - Maintain 80%+ code coverage
