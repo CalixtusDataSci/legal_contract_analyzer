@@ -15,6 +15,13 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from .config import CLAUSE_TYPES
 
+# Try to import spaCy for robust tokenization/lemmatization. If unavailable,
+# fall back to the lightweight heuristic stemmer below to keep behavior stable.
+try:
+    import spacy
+except Exception:  # pragma: no cover - environment may not have spaCy yet
+    spacy = None
+
 
 def _simple_stem(token: str) -> str:
     """Very small heuristic stemmer to avoid heavy external dependencies.
@@ -41,33 +48,54 @@ class ClauseClassifier:
 
     def __init__(self):
         self.clause_types = CLAUSE_TYPES
-        # Compile regex patterns for efficiency
+        # Initialize spaCy model if available; load lazily if missing
+        self.nlp = None
+        if spacy is not None:
+            try:
+                # Try loading the small English model; if not present, attempt to download it.
+                try:
+                    self.nlp = spacy.load("en_core_web_sm")
+                except OSError:
+                    # Download model and load
+                    spacy.cli.download("en_core_web_sm")
+                    self.nlp = spacy.load("en_core_web_sm")
+            except Exception:
+                logger.warning("spaCy is installed but the language model failed to load; falling back to heuristic stemmer")
+                self.nlp = None
+
+        # Compile patterns for efficiency (will use spaCy lemmas when available)
         self._compile_patterns()
 
     def _compile_patterns(self):
         """Pre-compile keyword patterns for performance."""
-        # Prepare stemmed keyword lists for robust tokenized matching
-        # use lightweight stemmer
-        stemmer = _simple_stem
-        self.keyword_stems: Dict[str, List[List[str]]] = {}
-        self.exclusion_stems: Dict[str, List[List[str]]] = {}
+        # Prepare lemma/stem keyword lists for robust tokenized matching
+        self.keyword_lemmas: Dict[str, List[List[str]]] = {}
+        self.exclusion_lemmas: Dict[str, List[List[str]]] = {}
 
         for clause_id, config in self.clause_types.items():
-            kw_stems = []
+            kw_lists = []
             for kw in config.get("required_keywords", []):
                 toks = re.findall(r"\w+", kw.lower())
                 if not toks:
                     continue
-                kw_stems.append([stemmer(t) for t in toks])
-            self.keyword_stems[clause_id] = kw_stems
+                if self.nlp:
+                    doc = self.nlp(" ".join(toks))
+                    kw_lists.append([t.lemma_.lower() for t in doc if t.is_alpha])
+                else:
+                    kw_lists.append([_simple_stem(t) for t in toks])
+            self.keyword_lemmas[clause_id] = kw_lists
 
-            ex_stems = []
+            ex_lists = []
             for ex in config.get("exclusion_keywords", []):
                 toks = re.findall(r"\w+", ex.lower())
                 if not toks:
                     continue
-                ex_stems.append([stemmer(t) for t in toks])
-            self.exclusion_stems[clause_id] = ex_stems
+                if self.nlp:
+                    doc = self.nlp(" ".join(toks))
+                    ex_lists.append([t.lemma_.lower() for t in doc if t.is_alpha])
+                else:
+                    ex_lists.append([_simple_stem(t) for t in toks])
+            self.exclusion_lemmas[clause_id] = ex_lists
 
     def extract_clauses(self, text: str) -> List[Dict[str, Any]]:
         """
@@ -151,23 +179,27 @@ class ClauseClassifier:
             sent_text = sent["text"]
             matches = []
 
-            # Tokenize sentence and compute stems
-            sent_tokens = re.findall(r"\w+", sent_text.lower())
-            sent_stems = [ _simple_stem(t) for t in sent_tokens]
+            # Tokenize sentence and compute lemmas (preferred) or stems (fallback)
+            if self.nlp:
+                doc = self.nlp(sent_text)
+                sent_lemmas = [t.lemma_.lower() for t in doc if t.is_alpha]
+            else:
+                sent_tokens = re.findall(r"\w+", sent_text.lower())
+                sent_lemmas = [_simple_stem(t) for t in sent_tokens]
 
             # Check for keyword matches using stem inclusion
-            for i, kw_stem_list in enumerate(self.keyword_stems.get(clause_id, [])):
-                # match if all stems of keyword phrase are present in sentence stems
-                if all(s in sent_stems for s in kw_stem_list):
-                    matches.append(" ".join(kw_stem_list))
+            for i, kw_list in enumerate(self.keyword_lemmas.get(clause_id, [])):
+                # match if all lemmas/stems of keyword phrase are present in sentence lemmas
+                if all(s in sent_lemmas for s in kw_list):
+                    matches.append(" ".join(kw_list))
 
             if not matches:
                 continue
 
             # Check for exclusion keywords using stems
             excluded = False
-            for ex_kw_stems in self.exclusion_stems.get(clause_id, []):
-                if all(s in sent_stems for s in ex_kw_stems):
+            for ex_kw in self.exclusion_lemmas.get(clause_id, []):
+                if all(s in sent_lemmas for s in ex_kw):
                     excluded = True
                     break
 
