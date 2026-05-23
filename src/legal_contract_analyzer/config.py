@@ -570,11 +570,11 @@ COMPLIANCE_RULES: Dict[str, Dict[str, Any]] = {
     "nda": {
         "name": "Non-Disclosure Agreement",
         "required_clauses": [
-            "confidentiality", "term", "governing_law",
-            "return_of_information", "remedies",
+            "confidentiality", "termination", "governing_law",
+            "dispute_resolution", "entire_agreement",
         ],
         "recommended_clauses": [
-            "termination", "dispute_resolution", "data_protection",
+            "data_protection", "assignment", "warranties",
         ],
     },
     "service": {
@@ -585,7 +585,7 @@ COMPLIANCE_RULES: Dict[str, Dict[str, Any]] = {
         ],
         "recommended_clauses": [
             "confidentiality", "force_majeure", "dispute_resolution",
-            "data_protection", "service_levels",
+            "data_protection", "assignment",
         ],
     },
 }

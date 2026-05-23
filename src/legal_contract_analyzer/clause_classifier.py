@@ -15,6 +15,18 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from .config import CLAUSE_TYPES
 
+
+def _simple_stem(token: str) -> str:
+    """Very small heuristic stemmer to avoid heavy external dependencies.
+
+    Not as robust as PorterStemmer but sufficient for keyword-stem matching.
+    """
+    t = token.lower()
+    for suffix in ("ing", "ed", "es", "s", "er", "ion", "ment", "ity"):
+        if t.endswith(suffix) and len(t) - len(suffix) > 2:
+            return t[: -len(suffix)]
+    return t
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,13 +46,28 @@ class ClauseClassifier:
 
     def _compile_patterns(self):
         """Pre-compile keyword patterns for performance."""
-        self.compiled_patterns = {}
+        # Prepare stemmed keyword lists for robust tokenized matching
+        # use lightweight stemmer
+        stemmer = _simple_stem
+        self.keyword_stems: Dict[str, List[List[str]]] = {}
+        self.exclusion_stems: Dict[str, List[List[str]]] = {}
+
         for clause_id, config in self.clause_types.items():
-            patterns = []
-            for kw in config["required_keywords"]:
-                # Allow word-start anchored matching to support stems (e.g. 'terminat' -> 'terminate')
-                patterns.append(re.compile(r'\b' + re.escape(kw), re.IGNORECASE))
-            self.compiled_patterns[clause_id] = patterns
+            kw_stems = []
+            for kw in config.get("required_keywords", []):
+                toks = re.findall(r"\w+", kw.lower())
+                if not toks:
+                    continue
+                kw_stems.append([stemmer(t) for t in toks])
+            self.keyword_stems[clause_id] = kw_stems
+
+            ex_stems = []
+            for ex in config.get("exclusion_keywords", []):
+                toks = re.findall(r"\w+", ex.lower())
+                if not toks:
+                    continue
+                ex_stems.append([stemmer(t) for t in toks])
+            self.exclusion_stems[clause_id] = ex_stems
 
     def extract_clauses(self, text: str) -> List[Dict[str, Any]]:
         """
@@ -85,25 +112,23 @@ class ClauseClassifier:
             "ltd", "plc", "lp", "llp", "gmbh", "sa", "bv",
         ]
 
-        # Pattern: split on period/exclamation/question followed by space and uppercase
-        # But not after abbreviations
-        pattern = r'(?<=[.!?])\s+(?=[A-Z])'
-
-        raw_splits = re.split(pattern, text)
+        # Use a regex iterator to capture sentence spans (start index + text).
+        # This preserves accurate positions in the original text and avoids
+        # using `str.find()` which returns the first occurrence and breaks
+        # for repeated sentences. The pattern captures up to the first
+        # sentence-ending punctuation or end-of-text.
+        sentence_pattern = r'.+?(?:[\.!?]+(?=\s)|$)'
 
         sentences = []
-        position = 0
-        for sent_text in raw_splits:
-            sent_text = sent_text.strip()
+        for m in re.finditer(sentence_pattern, text, flags=re.S):
+            sent_text = m.group(0).strip()
             if not sent_text or len(sent_text) < 10:
                 continue
-
             sentences.append({
                 "text": sent_text,
-                "position": position,
+                "position": m.start(),
                 "length": len(sent_text),
             })
-            position += len(sent_text)
 
         return sentences
 
@@ -116,8 +141,8 @@ class ClauseClassifier:
         Returns list of clause instances with extracted text and match confidence.
         """
         instances = []
-        patterns = self.compiled_patterns[clause_id]
-        keywords = config["required_keywords"]
+        # Use stemmed keyword lists prepared earlier
+        total_keywords = len(config.get("required_keywords", []))
 
         # Track which sentences have been used to avoid duplicates
         used_ranges = []
@@ -126,26 +151,34 @@ class ClauseClassifier:
             sent_text = sent["text"]
             matches = []
 
-            # Check for keyword matches
-            for i, pattern in enumerate(patterns):
-                if pattern.search(sent_text):
-                    matches.append(keywords[i])
+            # Tokenize sentence and compute stems
+            sent_tokens = re.findall(r"\w+", sent_text.lower())
+            sent_stems = [ _simple_stem(t) for t in sent_tokens]
+
+            # Check for keyword matches using stem inclusion
+            for i, kw_stem_list in enumerate(self.keyword_stems.get(clause_id, [])):
+                # match if all stems of keyword phrase are present in sentence stems
+                if all(s in sent_stems for s in kw_stem_list):
+                    matches.append(" ".join(kw_stem_list))
 
             if not matches:
                 continue
 
-            # Check for exclusion keywords
+            # Check for exclusion keywords using stems
             excluded = False
-            for ex_kw in config.get("exclusion_keywords", []):
-                if re.search(r'\b' + re.escape(ex_kw) + r'\b', sent_text, re.IGNORECASE):
+            for ex_kw_stems in self.exclusion_stems.get(clause_id, []):
+                if all(s in sent_stems for s in ex_kw_stems):
                     excluded = True
                     break
 
             if excluded:
                 continue
 
-            # Check overlap with existing instances
-            sent_start = full_text.find(sent_text)
+            # Use the sentence's recorded start position to avoid ambiguous
+            # full_text.find() matches for duplicated sentences.
+            sent_start = sent.get("position", -1)
+            if sent_start is None or sent_start < 0:
+                sent_start = full_text.find(sent_text)
             sent_end = sent_start + len(sent_text)
 
             overlap = False
@@ -163,7 +196,7 @@ class ClauseClassifier:
             context = self._extract_context(full_text, sent_start)
 
             # Calculate confidence score
-            confidence = self._calculate_confidence(matches, len(keywords), sent_text)
+            confidence = self._calculate_confidence(matches, total_keywords, sent_text)
 
             instances.append({
                 "id": f"{clause_id}_{len(instances) + 1}",
