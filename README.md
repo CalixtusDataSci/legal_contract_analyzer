@@ -51,7 +51,7 @@ legal-contract-analyzer/
 |   |-- config.py               # Configuration and constants
 |-- streamlit_app.py             # Interactive web dashboard
 |-- tests/                       # Comprehensive test suite
-|-- notebooks/                   # Tutorial and demo notebooks
+|-- notebooks/                   # NOTE: example notebooks have been removed from the repository
 |-- docs/                        # Documentation
 |-- data/sample_contracts/       # Sample contracts for testing
 ```
@@ -83,6 +83,9 @@ pip install -e .
 
 # Install development dependencies (for running tests)
 pip install -e ".[dev]"
+
+# If you plan to use the spaCy-powered clause matcher, download the English model:
+python -m spacy download en_core_web_sm
 ```
 
 ### Verify Installation
@@ -188,9 +191,7 @@ legal-contract-analyzer/
 |-- docs/
 |   |-- LEGAL.md                 # Legal disclaimers & compliance
 |   |-- METHODOLOGY.md           # Technical methodology
-|-- notebooks/
-|   |-- 01_tutorial.ipynb        # Step-by-step tutorial
-|   |-- 02_advanced_analysis.ipynb # Advanced use cases
+|-- notebooks/                   # previously used for examples; removed to keep repo lean
 |-- src/
 |   |-- legal_contract_analyzer/
 |   |   |-- __init__.py
