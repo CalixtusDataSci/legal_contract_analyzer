@@ -44,8 +44,8 @@ class PDFExtractor:
             import pdfplumber
             return self._extract_with_pdfplumber(pdf_path)
         except ImportError:
-            logger.warning("pdfplumber not installed, falling back to PyPDF2")
-            return self._extract_with_pypdf2(pdf_path)
+            logger.warning("pdfplumber not installed, falling back to pypdf")
+            return self._extract_with_pypdf(pdf_path)
 
     def _extract_with_pdfplumber(self, pdf_path: str) -> str:
         """Extract text using pdfplumber with layout preservation."""
@@ -64,9 +64,9 @@ class PDFExtractor:
         full_text = "\n\n".join(text_parts)
         return self._clean_text(full_text)
 
-    def _extract_with_pypdf2(self, pdf_path: str) -> str:
-        """Fallback extraction using PyPDF2."""
-        from PyPDF2 import PdfReader
+    def _extract_with_pypdf(self, pdf_path: str) -> str:
+        """Fallback extraction using pypdf."""
+        from pypdf import PdfReader
 
         reader = PdfReader(pdf_path)
         text_parts = []
@@ -110,7 +110,7 @@ class PDFExtractor:
 
     def extract_metadata(self, pdf_path: str) -> dict:
         """Extract PDF metadata if available."""
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
 
         reader = PdfReader(pdf_path)
         info = reader.metadata
